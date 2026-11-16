@@ -20,16 +20,29 @@
       padding: 0;
       width: 100%;
       height: 100%;
-      background-color: #FF5C00;
       overflow: hidden;
+      background-color: #FF5C00;
     }
-    body {
+    /* Make the button cover the entire screen */
+    #playBtn {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      border: none;
+      border-radius: 0;
+      background-color: #FF5C00;
       display: flex;
       justify-content: center;
       align-items: center;
       cursor: pointer;
+      outline: none;
+      -webkit-appearance: none; /* Removes default iOS button styling */
     }
-    .text {
+    /* The text inside the button */
+    #playBtn span {
       color: #000000;
       font-family: Arial, Helvetica, sans-serif;
       font-size: clamp(2rem, 12vw, 8rem);
@@ -38,12 +51,16 @@
       letter-spacing: 1px;
       text-align: center;
       text-transform: uppercase;
-      pointer-events: none; /* Clicks pass through to the body */
+      pointer-events: none; /* Ensures the click goes to the button, not the text */
     }
   </style>
 </head>
 <body>
-  <div class="text">DABEH POGI</div>
+  <!-- Using a real <button> is crucial for iOS Safari to allow audio -->
+  <button id="playBtn" type="button" aria-label="Play sound">
+    <span>DABEH POGI</span>
+  </button>
+  
   <audio id="audio" src="37263.mp3" preload="auto" loop playsinline></audio>
 
   <script>
@@ -51,16 +68,21 @@
       'use strict';
 
       const audio = document.getElementById('audio');
+      const btn = document.getElementById('playBtn');
+
+      // 1. Force iOS to treat this as media playback (bypasses physical mute switch)
+      if ('audioSession' in navigator) {
+        try { navigator.audioSession.type = 'playback'; } catch(_){}
+      }
       
-      // Loudness boost settings
       const BOOST = 3.0;
-      
       let ctx = null;
       let graphReady = false;
+      let isPlaying = false; // Anti-spam flag
 
       audio.volume = 1;
 
-      // 1. Web Audio API for Volume Boost
+      // 2. Web Audio API for Volume Boost
       function buildGraph() {
         if (graphReady) return;
         graphReady = true;
@@ -81,55 +103,60 @@
 
           src.connect(gain).connect(comp).connect(ctx.destination);
         } catch (err) {
+          console.warn('Web Audio error:', err);
           ctx = null;
         }
       }
 
-      // 2. Play logic with Anti-Spam check
+      // 3. Play Logic
       function playSound() {
-        // If audio is already playing, do nothing (prevents spamming/restarting)
-        if (!audio.paused) return;
+        // Anti-spam: If it's already playing, do nothing
+        if (isPlaying || !audio.paused) return;
 
-        // Unlock audio context for mobile
+        // iOS requires ctx.resume() to be called synchronously inside the click
         if (ctx && ctx.state !== 'running') {
           ctx.resume().catch(() => {});
         }
-        
+
+        isPlaying = true;
         audio.play().catch(err => {
           console.warn('Playback blocked:', err);
+          isPlaying = false; // Reset if it fails so they can try again
         });
       }
 
-      // 3. Media Session (Play only, no pause)
+      // 4. Media Session API (Play only)
       if ('mediaSession' in navigator) {
         try {
           navigator.mediaSession.metadata = new MediaMetadata({
             title: 'DABEH POGI', artist: 'DABEH POGI', album: 'DABEH POGI'
           });
           navigator.mediaSession.setActionHandler('play', playSound);
-          navigator.mediaSession.setActionHandler('pause', null); // Disable pause
-          navigator.mediaSession.setActionHandler('stop', null);  // Disable stop
+          navigator.mediaSession.setActionHandler('pause', null); 
+          navigator.mediaSession.setActionHandler('stop', null);
         } catch(_){}
       }
 
-      // 4. Listen for any tap or keypress
-      function handleInteraction(e) {
-        if (e.type === 'pointerdown' && e.button !== undefined && e.button !== 0) return;
-        if (e.type === 'keydown' && e.key !== ' ' && e.key !== 'Enter') return;
+      // 5. Bind the event directly to the button (NOT the document)
+      btn.addEventListener('pointerdown', (e) => {
+        if (e.button !== undefined && e.button !== 0) return;
         playSound();
-      }
+      });
+      
+      // Fallback for iOS if pointerdown doesn't trigger
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        playSound();
+      });
 
-      document.addEventListener('pointerdown', handleInteraction, { passive: true });
-      document.addEventListener('keydown', handleInteraction, { passive: true });
-
-      // 5. Boot up
+      // 6. Boot up
       buildGraph();
       try { audio.load(); } catch(_){}
       
-      // Try to autoplay immediately (browsers will block until user taps)
+      // Try to autoplay immediately (browsers will block until tap)
       playSound();
 
-      // 6. Service Worker
+      // 7. Service Worker
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('sw.js').catch(console.error);
