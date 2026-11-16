@@ -28,17 +28,17 @@
       justify-content: center;
       align-items: center;
       cursor: pointer;
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
     .text {
       color: #000000;
-      font-size: clamp(2rem, 11vw, 7rem);
-      font-weight: 900;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: clamp(2rem, 12vw, 8rem);
+      font-weight: 800;
       font-style: italic;
       letter-spacing: 1px;
       text-align: center;
       text-transform: uppercase;
-      pointer-events: none; /* Let the body handle all clicks */
+      pointer-events: none; /* Clicks pass through to the body */
     }
   </style>
 </head>
@@ -52,15 +52,15 @@
 
       const audio = document.getElementById('audio');
       
-      // Tweakables
-      const BOOST = 3.0; // Makes the volume louder without clipping
+      // Loudness boost settings
+      const BOOST = 3.0;
       
       let ctx = null;
       let graphReady = false;
 
       audio.volume = 1;
 
-      // Loudness boost (Web Audio API)
+      // 1. Web Audio API for Volume Boost
       function buildGraph() {
         if (graphReady) return;
         graphReady = true;
@@ -81,40 +81,38 @@
 
           src.connect(gain).connect(comp).connect(ctx.destination);
         } catch (err) {
-          console.warn('Web Audio unavailable, using element volume only', err);
           ctx = null;
         }
       }
 
+      // 2. Play logic with Anti-Spam check
       function playSound() {
-        // Resume audio context immediately (needed for some browsers)
+        // If audio is already playing, do nothing (prevents spamming/restarting)
+        if (!audio.paused) return;
+
+        // Unlock audio context for mobile
         if (ctx && ctx.state !== 'running') {
           ctx.resume().catch(() => {});
         }
         
-        // Restart from the beginning on every tap
-        try { audio.currentTime = 0; } catch(_){}
-        
-        // Play (no pause logic anywhere)
         audio.play().catch(err => {
-          console.warn('Playback blocked:', err && err.name);
+          console.warn('Playback blocked:', err);
         });
       }
 
-      // Setup Media Session (play only, no pause)
+      // 3. Media Session (Play only, no pause)
       if ('mediaSession' in navigator) {
         try {
           navigator.mediaSession.metadata = new MediaMetadata({
             title: 'DABEH POGI', artist: 'DABEH POGI', album: 'DABEH POGI'
           });
           navigator.mediaSession.setActionHandler('play', playSound);
-          // Remove any pause handlers so it cannot be paused via media controls
-          navigator.mediaSession.setActionHandler('pause', null);
-          navigator.mediaSession.setActionHandler('stop', null);
+          navigator.mediaSession.setActionHandler('pause', null); // Disable pause
+          navigator.mediaSession.setActionHandler('stop', null);  // Disable stop
         } catch(_){}
       }
 
-      // Trigger sound instantly on ANY pointer down or key press
+      // 4. Listen for any tap or keypress
       function handleInteraction(e) {
         if (e.type === 'pointerdown' && e.button !== undefined && e.button !== 0) return;
         if (e.type === 'keydown' && e.key !== ' ' && e.key !== 'Enter') return;
@@ -124,14 +122,14 @@
       document.addEventListener('pointerdown', handleInteraction, { passive: true });
       document.addEventListener('keydown', handleInteraction, { passive: true });
 
-      // Boot up
+      // 5. Boot up
       buildGraph();
       try { audio.load(); } catch(_){}
       
-      // Attempt autoplay on load (usually blocked until first gesture)
+      // Try to autoplay immediately (browsers will block until user taps)
       playSound();
 
-      // Service Worker
+      // 6. Service Worker
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('sw.js').catch(console.error);
