@@ -3,77 +3,325 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#111111">
+  <meta name="theme-color" content="#0a0a0f">
   <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>TapSound</title>
   <link rel="manifest" href="manifest.webmanifest">
   <style>
-    *{box-sizing:border-box}
-    html,body{margin:0;width:100%;height:100%;background:#111;color:#fff;font-family:system-ui,-apple-system,sans-serif}
-    body{display:grid;place-items:center;overflow:hidden}
-    button{
-      width:160px;height:160px;border:0;border-radius:50%;
-      background:#fff;color:#111;font-size:24px;font-weight:700;
-      box-shadow:0 14px 40px #0008;cursor:pointer;
-      -webkit-tap-highlight-color:transparent;
+    :root{
+      --bg:#0a0a0f;
+      --fg:#f6f6fa;
+      --muted:#8b8b9c;
+      --brand:#8b6bff;
+      --brand2:#2fd6a8;
+      --size:min(54vw,200px);
     }
-    button:active{transform:scale(.94)}
-    button.playing{background:#ddd}
-    .hint{position:fixed;bottom:28px;left:0;right:0;text-align:center;font-size:13px;color:#aaa}
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      display:grid;
+      place-items:center;
+      overflow:hidden;
+      color:var(--fg);
+      font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+      -webkit-font-smoothing:antialiased;
+      -webkit-tap-highlight-color:transparent;
+      user-select:none;
+      -webkit-user-select:none;
+      background:
+        radial-gradient(1200px 620px at 50% -12%, #1c1b30 0%, transparent 62%),
+        radial-gradient(900px 520px at 50% 112%, #12201f 0%, transparent 62%),
+        var(--bg);
+      padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    }
+
+    .app{
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      text-align:center;
+      padding:24px;
+    }
+
+    /* ---------- button + pulse rings ---------- */
+    .stage{
+      position:relative;
+      width:var(--size);
+      height:var(--size);
+      display:grid;
+      place-items:center;
+      margin-bottom:30px;
+    }
+    .halo{
+      position:absolute;
+      inset:0;
+      border-radius:50%;
+      border:2px solid rgba(139,107,255,.5);
+      opacity:0;
+      pointer-events:none;
+    }
+    body.playing .halo{animation:pulse 2.6s cubic-bezier(.2,.6,.4,1) infinite}
+    body.playing .halo:nth-child(2){animation-delay:1.3s}
+    @keyframes pulse{
+      0%{transform:scale(1);opacity:.65}
+      70%{opacity:0}
+      100%{transform:scale(1.75);opacity:0}
+    }
+
+    .tapbtn{
+      position:relative;
+      z-index:2;
+      width:100%;
+      height:100%;
+      border:0;
+      border-radius:50%;
+      display:grid;
+      place-items:center;
+      cursor:pointer;
+      color:#12121a;
+      touch-action:manipulation;
+      background:radial-gradient(circle at 30% 25%,#ffffff,#dcdce8 60%,#c3c3d4 100%);
+      box-shadow:0 20px 45px rgba(0,0,0,.6), inset 0 0 0 1px rgba(255,255,255,.06);
+      transition:transform .12s ease, background .35s ease, box-shadow .35s ease, color .35s ease;
+    }
+    .tapbtn:active{transform:scale(.94)}
+    .tapbtn:focus-visible{outline:2px solid var(--brand2);outline-offset:8px}
+    .tapbtn svg{width:42%;height:42%;fill:currentColor;display:block}
+    .tapbtn .ic-play{transform:translateX(6%)}
+    .tapbtn .ic-pause{display:none}
+
+    body.playing .tapbtn{
+      color:#0b0b12;
+      background:radial-gradient(circle at 30% 25%,#bcabff,#8b6bff 55%,#6a4bf0 100%);
+      box-shadow:0 22px 60px rgba(139,107,255,.45);
+    }
+    body.playing .tapbtn .ic-play{display:none}
+    body.playing .tapbtn .ic-pause{display:block}
+
+    /* ---------- text ---------- */
+    .title{
+      margin:0;
+      font-size:22px;
+      font-weight:700;
+      letter-spacing:-.02em;
+    }
+    .status{
+      margin:7px 0 0;
+      font-size:14px;
+      color:var(--muted);
+      transition:color .3s ease;
+    }
+    body.playing .status{color:var(--brand2)}
+
+    /* ---------- equalizer bars ---------- */
+    .bars{
+      display:flex;
+      align-items:center;
+      gap:4px;
+      height:26px;
+      margin-top:22px;
+      opacity:.3;
+      transition:opacity .3s ease;
+    }
+    body.playing .bars{opacity:1}
+    .bars i{
+      width:4px;
+      height:6px;
+      border-radius:2px;
+      background:linear-gradient(180deg,var(--brand),var(--brand2));
+      transition:height .25s ease;
+    }
+    body.playing .bars i{animation:eq 1s ease-in-out infinite}
+    .bars i:nth-child(1){animation-delay:-.90s}
+    .bars i:nth-child(2){animation-delay:-.60s}
+    .bars i:nth-child(3){animation-delay:-.35s}
+    .bars i:nth-child(4){animation-delay:-.75s}
+    .bars i:nth-child(5){animation-delay:-.15s}
+    .bars i:nth-child(6){animation-delay:-.50s}
+    .bars i:nth-child(7){animation-delay:-.80s}
+    @keyframes eq{0%,100%{height:6px}50%{height:24px}}
+
+    .hint{
+      position:fixed;
+      left:0;right:0;
+      bottom:calc(18px + env(safe-area-inset-bottom));
+      text-align:center;
+      font-size:12px;
+      letter-spacing:.02em;
+      color:#5d5d70;
+      pointer-events:none;
+    }
+
+    @media (prefers-reduced-motion:reduce){
+      .halo,.bars i{animation:none !important}
+      .tapbtn{transition:none}
+    }
   </style>
 </head>
 <body>
-  <button id="btn" aria-label="Play sound">▶</button>
-  <div class="hint">Tap to play • loops continuously</div>
+  <main class="app">
+    <div class="stage">
+      <span class="halo"></span>
+      <span class="halo"></span>
+      <button id="btn" class="tapbtn" type="button" aria-label="Play sound" aria-pressed="false">
+        <svg class="ic-play" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M8.5 5.2a1 1 0 0 1 1.52-.85l9.1 6.8a1 1 0 0 1 0 1.7l-9.1 6.8a1 1 0 0 1-1.52-.85V5.2Z"/>
+        </svg>
+        <svg class="ic-pause" viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="6.5" y="4.5" width="4" height="15" rx="1.6"/>
+          <rect x="13.5" y="4.5" width="4" height="15" rx="1.6"/>
+        </svg>
+      </button>
+    </div>
+
+    <h1 class="title">TapSound</h1>
+    <p class="status" id="status">Tap to play</p>
+
+    <div class="bars" aria-hidden="true">
+      <i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+    </div>
+  </main>
+
+  <p class="hint">Loops continuously · Works offline</p>
 
   <audio id="audio" src="37263.mp3" preload="auto" loop playsinline></audio>
 
   <script>
-    const audio = document.getElementById('audio');
-    const btn = document.getElementById('btn');
+  (() => {
+    'use strict';
+
+    const audio    = document.getElementById('audio');
+    const btn      = document.getElementById('btn');
+    const statusEl = document.getElementById('status');
+
+    /* ---- tweakables ---- */
+    const BOOST        = 2.5;  // 1.0 = file's normal level. 2–3 = louder (compressor tames clipping)
+    const START_OFFSET = 0;    // seconds to skip, e.g. 0.4 if the mp3 begins with silence
+
+    let ctx = null, graphReady = false;
+    let unlockHandled = false;  // prevents the "start" gesture from also pausing
 
     audio.volume = 1;
 
-    function updateUI(){
-      const playing = !audio.paused;
-      btn.textContent = playing ? '❚❚' : '▶';
-      btn.classList.toggle('playing', playing);
+    /* ---------- loudness boost (Web Audio) ---------- */
+    function buildGraph(){
+      if (graphReady) return;
+      graphReady = true;
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;                       // very old browser → element volume only
+      try{
+        ctx = new AC();
+        const src  = ctx.createMediaElementSource(audio);
+        const gain = ctx.createGain();
+        gain.gain.value = BOOST;
+
+        const comp = ctx.createDynamicsCompressor();  // limiter: keeps the boost from clipping
+        comp.threshold.value = -12;
+        comp.knee.value      = 10;
+        comp.ratio.value     = 12;
+        comp.attack.value    = 0.003;
+        comp.release.value   = 0.25;
+
+        src.connect(gain).connect(comp).connect(ctx.destination);
+      }catch(err){
+        console.warn('Web Audio unavailable, using element volume only', err);
+        ctx = null;
+      }
     }
 
+    function resumeCtx(){
+      if (ctx && ctx.state !== 'running') return ctx.resume().catch(() => {});
+      return Promise.resolve();
+    }
+
+    /* ---------- playback ---------- */
+    async function start(){
+      try{
+        await resumeCtx();
+        if (START_OFFSET && audio.currentTime < START_OFFSET) audio.currentTime = START_OFFSET;
+        await audio.play();
+      }catch(err){
+        console.warn('Playback blocked:', err && err.name);
+      }
+      syncUI();
+    }
+
+    function stop(){
+      audio.pause();
+      syncUI();
+    }
+
+    function toggle(){
+      if (navigator.vibrate) { try { navigator.vibrate(8); } catch(_){} }
+      if (audio.paused) start(); else stop();
+    }
+
+    /* ---------- UI ---------- */
+    function syncUI(){
+      const playing = !audio.paused;
+      document.body.classList.toggle('playing', playing);
+      btn.setAttribute('aria-pressed', playing ? 'true' : 'false');
+      btn.setAttribute('aria-label', playing ? 'Pause sound' : 'Play sound');
+      statusEl.textContent = audio.error
+        ? 'Audio unavailable'
+        : (playing ? 'Playing · looping' : 'Tap to play');
+    }
+
+    /* ---------- media session ---------- */
     function setupMediaSession(){
       if (!('mediaSession' in navigator)) return;
-      navigator.mediaSession.metadata = new MediaMetadata({
-        title: 'TapSound',
-        artist: 'TapSound',
-        album: 'TapSound'
-      });
-      navigator.mediaSession.setActionHandler('play', () => audio.play());
-      navigator.mediaSession.setActionHandler('pause', () => audio.pause());
+      try{
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: 'TapSound', artist: 'TapSound', album: 'TapSound'
+        });
+        navigator.mediaSession.setActionHandler('play',  () => start());
+        navigator.mediaSession.setActionHandler('pause', () => stop());
+        navigator.mediaSession.setActionHandler('stop',  () => stop());
+      }catch(_){}
     }
 
-    btn.addEventListener('click', async () => {
-      try {
-        if (audio.paused) {
-          audio.volume = 1;
-          await audio.play();
-        } else {
-          audio.pause();
-        }
-        updateUI();
-        setupMediaSession();
-      } catch (e) {
-        console.error(e);
+    /* ---------- first gesture: start instantly, on pointerdown ---------- */
+    function onFirstGesture(e){
+      resumeCtx();                              // unlock audio hardware ASAP
+      if (!audio.paused) return;                // already playing → let the click toggle
+      const onBtn = e.target instanceof Element && e.target.closest('#btn');
+      if (onBtn) {
+        unlockHandled = true;
+        setTimeout(() => { unlockHandled = false; }, 800); // safety net
       }
+      start();
+    }
+    document.addEventListener('pointerdown', onFirstGesture, { capture: true, passive: true });
+    document.addEventListener('keydown',     onFirstGesture, true);
+
+    /* ---------- button ---------- */
+    btn.addEventListener('click', () => {
+      if (unlockHandled) { unlockHandled = false; return; } // already started on pointerdown
+      toggle();
     });
 
-    audio.addEventListener('play', updateUI);
-    audio.addEventListener('pause', updateUI);
+    /* ---------- element events ---------- */
+    ['play','pause','ended','loadedmetadata','error'].forEach(ev =>
+      audio.addEventListener(ev, syncUI)
+    );
 
+    /* ---------- boot ---------- */
+    buildGraph();                 // ready before the first tap → no start-up delay
+    try { audio.load(); } catch(_){}
+    setupMediaSession();
+    syncUI();
+    start();                      // autoplay attempt (browsers usually block until a gesture)
+
+    /* ---------- service worker ---------- */
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('sw.js').catch(console.error);
       });
     }
+  })();
   </script>
 </body>
 </html>
