@@ -14,9 +14,10 @@
       --bg:#0a0a0f;
       --fg:#f6f6fa;
       --muted:#8b8b9c;
-      --brand:#8b6bff;
-      --brand2:#2fd6a8;
-      --size:min(54vw,200px);
+      --orange:#ff7a1a;
+      --orange-deep:#e85d00;
+      --orange-hot:#ff9440;
+      --size:min(56vw,210px);
     }
     *{box-sizing:border-box}
     html,body{height:100%}
@@ -32,8 +33,8 @@
       user-select:none;
       -webkit-user-select:none;
       background:
-        radial-gradient(1200px 620px at 50% -12%, #1c1b30 0%, transparent 62%),
-        radial-gradient(900px 520px at 50% 112%, #12201f 0%, transparent 62%),
+        radial-gradient(1200px 620px at 50% -12%, #2a1a10 0%, transparent 62%),
+        radial-gradient(900px 520px at 50% 112%, #241206 0%, transparent 62%),
         var(--bg);
       padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
     }
@@ -59,7 +60,7 @@
       position:absolute;
       inset:0;
       border-radius:50%;
-      border:2px solid rgba(139,107,255,.5);
+      border:2px solid rgba(255,122,26,.55);
       opacity:0;
       pointer-events:none;
     }
@@ -80,26 +81,35 @@
       border-radius:50%;
       display:grid;
       place-items:center;
+      padding:10%;
       cursor:pointer;
-      color:#12121a;
+      color:#1a0d00;
+      font-family:inherit;
+      font-weight:900;
+      font-size:clamp(15px,4.6vw,24px);
+      letter-spacing:.08em;
+      line-height:1.15;
+      text-transform:uppercase;
+      text-align:center;
       touch-action:manipulation;
-      background:radial-gradient(circle at 30% 25%,#ffffff,#dcdce8 60%,#c3c3d4 100%);
-      box-shadow:0 20px 45px rgba(0,0,0,.6), inset 0 0 0 1px rgba(255,255,255,.06);
-      transition:transform .12s ease, background .35s ease, box-shadow .35s ease, color .35s ease;
+      background:radial-gradient(circle at 32% 26%, var(--orange-hot), var(--orange) 52%, var(--orange-deep) 100%);
+      box-shadow:
+        0 20px 45px rgba(0,0,0,.65),
+        0 0 0 1px rgba(255,255,255,.10) inset,
+        0 18px 60px rgba(255,122,26,.28);
+      transition:transform .06s ease, box-shadow .2s ease, filter .2s ease;
+      will-change:transform;
     }
     .tapbtn:active{transform:scale(.94)}
-    .tapbtn:focus-visible{outline:2px solid var(--brand2);outline-offset:8px}
-    .tapbtn svg{width:42%;height:42%;fill:currentColor;display:block}
-    .tapbtn .ic-play{transform:translateX(6%)}
-    .tapbtn .ic-pause{display:none}
+    .tapbtn:focus-visible{outline:3px solid #fff;outline-offset:8px}
 
     body.playing .tapbtn{
-      color:#0b0b12;
-      background:radial-gradient(circle at 30% 25%,#bcabff,#8b6bff 55%,#6a4bf0 100%);
-      box-shadow:0 22px 60px rgba(139,107,255,.45);
+      filter:brightness(1.06);
+      box-shadow:
+        0 22px 60px rgba(255,122,26,.55),
+        0 0 0 1px rgba(255,255,255,.16) inset,
+        0 0 80px rgba(255,122,26,.45);
     }
-    body.playing .tapbtn .ic-play{display:none}
-    body.playing .tapbtn .ic-pause{display:block}
 
     /* ---------- text ---------- */
     .title{
@@ -114,7 +124,7 @@
       color:var(--muted);
       transition:color .3s ease;
     }
-    body.playing .status{color:var(--brand2)}
+    body.playing .status{color:var(--orange-hot)}
 
     /* ---------- equalizer bars ---------- */
     .bars{
@@ -131,7 +141,7 @@
       width:4px;
       height:6px;
       border-radius:2px;
-      background:linear-gradient(180deg,var(--brand),var(--brand2));
+      background:linear-gradient(180deg,var(--orange-hot),var(--orange-deep));
       transition:height .25s ease;
     }
     body.playing .bars i{animation:eq 1s ease-in-out infinite}
@@ -166,15 +176,7 @@
     <div class="stage">
       <span class="halo"></span>
       <span class="halo"></span>
-      <button id="btn" class="tapbtn" type="button" aria-label="Play sound" aria-pressed="false">
-        <svg class="ic-play" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M8.5 5.2a1 1 0 0 1 1.52-.85l9.1 6.8a1 1 0 0 1 0 1.7l-9.1 6.8a1 1 0 0 1-1.52-.85V5.2Z"/>
-        </svg>
-        <svg class="ic-pause" viewBox="0 0 24 24" aria-hidden="true">
-          <rect x="6.5" y="4.5" width="4" height="15" rx="1.6"/>
-          <rect x="13.5" y="4.5" width="4" height="15" rx="1.6"/>
-        </svg>
-      </button>
+      <button id="btn" class="tapbtn" type="button" aria-label="Play sound">DABEH POGI</button>
     </div>
 
     <h1 class="title">TapSound</h1>
@@ -198,11 +200,11 @@
     const statusEl = document.getElementById('status');
 
     /* ---- tweakables ---- */
-    const BOOST        = 2.5;  // 1.0 = file's normal level. 2–3 = louder (compressor tames clipping)
-    const START_OFFSET = 0;    // seconds to skip, e.g. 0.4 if the mp3 begins with silence
+    const BOOST        = 3.0;  // louder output, compressor keeps peaks in check
+    const START_OFFSET = 0;    // seconds to skip if the file begins with silence
 
     let ctx = null, graphReady = false;
-    let unlockHandled = false;  // prevents the "start" gesture from also pausing
+    let lastBtnStart = 0;
 
     audio.volume = 1;
 
@@ -211,19 +213,19 @@
       if (graphReady) return;
       graphReady = true;
       const AC = window.AudioContext || window.webkitAudioContext;
-      if (!AC) return;                       // very old browser → element volume only
+      if (!AC) return;
       try{
         ctx = new AC();
         const src  = ctx.createMediaElementSource(audio);
         const gain = ctx.createGain();
         gain.gain.value = BOOST;
 
-        const comp = ctx.createDynamicsCompressor();  // limiter: keeps the boost from clipping
-        comp.threshold.value = -12;
-        comp.knee.value      = 10;
-        comp.ratio.value     = 12;
-        comp.attack.value    = 0.003;
-        comp.release.value   = 0.25;
+        const comp = ctx.createDynamicsCompressor();
+        comp.threshold.value = -14;
+        comp.knee.value      = 8;
+        comp.ratio.value     = 20;
+        comp.attack.value    = 0.002;
+        comp.release.value   = 0.2;
 
         src.connect(gain).connect(comp).connect(ctx.destination);
       }catch(err){
@@ -237,11 +239,15 @@
       return Promise.resolve();
     }
 
-    /* ---------- playback ---------- */
-    async function start(){
+    /* ---------- play-only playback ---------- */
+    async function start(restart){
+      resumeCtx();
+
+      if (restart && !audio.paused) {
+        try { audio.currentTime = 0; } catch(_){}
+      }
+
       try{
-        await resumeCtx();
-        if (START_OFFSET && audio.currentTime < START_OFFSET) audio.currentTime = START_OFFSET;
         await audio.play();
       }catch(err){
         console.warn('Playback blocked:', err && err.name);
@@ -249,59 +255,70 @@
       syncUI();
     }
 
-    function stop(){
-      audio.pause();
-      syncUI();
-    }
-
-    function toggle(){
-      if (navigator.vibrate) { try { navigator.vibrate(8); } catch(_){} }
-      if (audio.paused) start(); else stop();
-    }
-
-    /* ---------- UI ---------- */
     function syncUI(){
       const playing = !audio.paused;
       document.body.classList.toggle('playing', playing);
-      btn.setAttribute('aria-pressed', playing ? 'true' : 'false');
-      btn.setAttribute('aria-label', playing ? 'Pause sound' : 'Play sound');
+      btn.setAttribute('aria-label', playing ? 'Playing sound' : 'Play sound');
       statusEl.textContent = audio.error
         ? 'Audio unavailable'
         : (playing ? 'Playing · looping' : 'Tap to play');
     }
 
-    /* ---------- media session ---------- */
+    /* ---------- media session (play only) ---------- */
     function setupMediaSession(){
       if (!('mediaSession' in navigator)) return;
       try{
         navigator.mediaSession.metadata = new MediaMetadata({
           title: 'TapSound', artist: 'TapSound', album: 'TapSound'
         });
-        navigator.mediaSession.setActionHandler('play',  () => start());
-        navigator.mediaSession.setActionHandler('pause', () => stop());
-        navigator.mediaSession.setActionHandler('stop',  () => stop());
+        navigator.mediaSession.setActionHandler('play', () => start(false));
       }catch(_){}
     }
 
-    /* ---------- first gesture: start instantly, on pointerdown ---------- */
-    function onFirstGesture(e){
-      resumeCtx();                              // unlock audio hardware ASAP
-      if (!audio.paused) return;                // already playing → let the click toggle
-      const onBtn = e.target instanceof Element && e.target.closest('#btn');
-      if (onBtn) {
-        unlockHandled = true;
-        setTimeout(() => { unlockHandled = false; }, 800); // safety net
-      }
-      start();
+    /* ---------- immediate input handlers ---------- */
+    function startFromButton(){
+      lastBtnStart = performance.now();
+      start(true);
     }
-    document.addEventListener('pointerdown', onFirstGesture, { capture: true, passive: true });
-    document.addEventListener('keydown',     onFirstGesture, true);
 
-    /* ---------- button ---------- */
-    btn.addEventListener('click', () => {
-      if (unlockHandled) { unlockHandled = false; return; } // already started on pointerdown
-      toggle();
-    });
+    function onDocPointerDown(e){
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      if (e.target instanceof Element && e.target.closest('#btn')) return;
+      start(false);
+    }
+
+    function onBtnPointerDown(e){
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      startFromButton();
+    }
+
+    function onDocKeyDown(e){
+      if (e.target instanceof Element && e.target.closest('#btn')) return;
+      if (e.key === ' ' || e.key === 'Enter') {
+        e.preventDefault();
+        start(false);
+      }
+    }
+
+    function onBtnKeyDown(e){
+      if (e.key === ' ' || e.key === 'Enter') {
+        e.preventDefault();
+        startFromButton();
+      }
+    }
+
+    /* fallback for screen readers / synthetic clicks only */
+    function onBtnClick(e){
+      if (e.detail === 0 && performance.now() - lastBtnStart > 300) {
+        startFromButton();
+      }
+    }
+
+    document.addEventListener('pointerdown', onDocPointerDown, { capture: true, passive: true });
+    document.addEventListener('keydown', onDocKeyDown, true);
+    btn.addEventListener('pointerdown', onBtnPointerDown, { passive: true });
+    btn.addEventListener('keydown', onBtnKeyDown);
+    btn.addEventListener('click', onBtnClick);
 
     /* ---------- element events ---------- */
     ['play','pause','ended','loadedmetadata','error'].forEach(ev =>
@@ -309,11 +326,11 @@
     );
 
     /* ---------- boot ---------- */
-    buildGraph();                 // ready before the first tap → no start-up delay
+    buildGraph();
     try { audio.load(); } catch(_){}
     setupMediaSession();
     syncUI();
-    start();                      // autoplay attempt (browsers usually block until a gesture)
+    start(false); // autoplay attempt; browsers usually require first gesture
 
     /* ---------- service worker ---------- */
     if ('serviceWorker' in navigator) {
