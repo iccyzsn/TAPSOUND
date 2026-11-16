@@ -1,21 +1,20 @@
 <!doctype html>
+
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#FF5C00">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">  <meta name="theme-color" content="#FF5C00">
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <title>DABEH POGI</title>
-  <link rel="manifest" href="manifest.webmanifest">
-  <style>
+  <meta name="apple-mobile-web-app-capable" content="yes">  <title>DABEH POGI</title>  <link rel="manifest" href="manifest.webmanifest">  <style>
     * {
       box-sizing: border-box;
       -webkit-tap-highlight-color: transparent;
       user-select: none;
       -webkit-user-select: none;
     }
-    html, body {
+
+    html,
+    body {
       margin: 0;
       padding: 0;
       width: 100%;
@@ -23,45 +22,65 @@
       overflow: hidden;
       background-color: #FF5C00;
     }
-    /* Make the button cover the entire screen */
+
     #playBtn {
       position: absolute;
-      top: 0; left: 0; right: 0; bottom: 0;
+      inset: 0;
+
       width: 100%;
       height: 100%;
+
       margin: 0;
       padding: 0;
+
       border: none;
       border-radius: 0;
+
       background-color: #FF5C00;
+
       display: flex;
       justify-content: center;
       align-items: center;
+
       cursor: pointer;
       outline: none;
-      -webkit-appearance: none; /* Removes default iOS button styling */
+
+      -webkit-appearance: none;
+      appearance: none;
     }
-    /* The text inside the button */
+
     #playBtn span {
       color: #000000;
+
       font-family: Arial, Helvetica, sans-serif;
       font-size: clamp(2rem, 12vw, 8rem);
+
       font-weight: 800;
       font-style: italic;
+
       letter-spacing: 1px;
       text-align: center;
       text-transform: uppercase;
-      pointer-events: none; /* Ensures the click goes to the button, not the text */
+
+      pointer-events: none;
     }
-  </style>
-</head>
-<body>
-  <!-- Using a real <button> is crucial for iOS Safari to allow audio -->
-  <button id="playBtn" type="button" aria-label="Play sound">
-    <span>DABEH POGI</span>
-  </button>
-  
-  <audio id="audio" src="37263.mp3" preload="auto" loop playsinline></audio>
+  </style></head><body><button
+id="playBtn"
+type="button"
+aria-label="Play sound"
+
+«»
+
+<span>DABEH POGI</span>
+
+  </button><audio
+id="audio"
+src="37263.mp3"
+preload="auto"
+loop
+playsinline
+
+«</audio>»
 
   <script>
     (() => {
@@ -70,99 +89,299 @@
       const audio = document.getElementById('audio');
       const btn = document.getElementById('playBtn');
 
-      // 1. Force iOS to treat this as media playback (bypasses physical mute switch)
-      if ('audioSession' in navigator) {
-        try { navigator.audioSession.type = 'playback'; } catch(_){}
-      }
-      
-      const BOOST = 3.0;
-      let ctx = null;
-      let graphReady = false;
-      let isPlaying = false; // Anti-spam flag
+      /*
+       * Detect iOS / iPadOS.
+       */
+      const isIOS =
+        /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (
+          navigator.platform === 'MacIntel' &&
+          navigator.maxTouchPoints > 1
+        );
 
+      /*
+       * iOS Web Audio state.
+       */
+      let audioContext = null;
+      let graphReady = false;
+
+      /*
+       * Normal HTML audio volume.
+       */
       audio.volume = 1;
 
-      // 2. Web Audio API for Volume Boost
-      function buildGraph() {
-        if (graphReady) return;
-        graphReady = true;
-        const AC = window.AudioContext || window.webkitAudioContext;
-        if (!AC) return;
+
+      /*
+       * =========================================================
+       * ANDROID / NON-iOS
+       * =========================================================
+       *
+       * Uses normal HTML5 audio playback.
+       */
+      function playDefault() {
+        if (!audio.paused) {
+          return;
+        }
+
+        audio.play().catch((error) => {
+          console.warn('Playback blocked:', error);
+        });
+      }
+
+
+      /*
+       * =========================================================
+       * iOS WEB AUDIO
+       * =========================================================
+       *
+       * IMPORTANT:
+       * The AudioContext is NOT created during page load.
+       *
+       * It is created only after the user taps the button.
+       */
+      function buildIOSGraph() {
+
+        if (graphReady) {
+          return;
+        }
+
+        const AudioContextClass =
+          window.AudioContext ||
+          window.webkitAudioContext;
+
+        if (!AudioContextClass) {
+          console.warn('Web Audio API is unavailable on this device.');
+          return;
+        }
+
         try {
-          ctx = new AC();
-          const src = ctx.createMediaElementSource(audio);
-          const gain = ctx.createGain();
-          gain.gain.value = BOOST;
 
-          const comp = ctx.createDynamicsCompressor();
-          comp.threshold.value = -14;
-          comp.knee.value = 8;
-          comp.ratio.value = 20;
-          comp.attack.value = 0.002;
-          comp.release.value = 0.2;
+          audioContext = new AudioContextClass();
 
-          src.connect(gain).connect(comp).connect(ctx.destination);
-        } catch (err) {
-          console.warn('Web Audio error:', err);
-          ctx = null;
+          const source =
+            audioContext.createMediaElementSource(audio);
+
+          const gain =
+            audioContext.createGain();
+
+          const compressor =
+            audioContext.createDynamicsCompressor();
+
+
+          /*
+           * Volume boost.
+           */
+          gain.gain.value = 3.0;
+
+
+          /*
+           * Compression prevents the boosted signal
+           * from becoming excessively distorted.
+           */
+          compressor.threshold.value = -14;
+          compressor.knee.value = 8;
+          compressor.ratio.value = 20;
+          compressor.attack.value = 0.002;
+          compressor.release.value = 0.2;
+
+
+          /*
+           * Audio chain:
+           *
+           * MP3
+           *   ↓
+           * Gain
+           *   ↓
+           * Compressor
+           *   ↓
+           * iPhone speakers
+           */
+          source
+            .connect(gain)
+            .connect(compressor)
+            .connect(audioContext.destination);
+
+
+          graphReady = true;
+
+        } catch (error) {
+
+          console.warn(
+            'iOS Web Audio setup failed:',
+            error
+          );
+
+          audioContext = null;
         }
       }
 
-      // 3. Play Logic
+
+      /*
+       * =========================================================
+       * iOS PLAYBACK
+       * =========================================================
+       */
+      async function playIOS() {
+
+        if (!audio.paused) {
+          return;
+        }
+
+
+        /*
+         * Build the audio graph as part of the
+         * user's tap gesture.
+         */
+        buildIOSGraph();
+
+
+        /*
+         * Resume the AudioContext after the user gesture.
+         */
+        if (
+          audioContext &&
+          audioContext.state !== 'running'
+        ) {
+          try {
+            await audioContext.resume();
+          } catch (error) {
+            console.warn(
+              'AudioContext resume failed:',
+              error
+            );
+          }
+        }
+
+
+        /*
+         * Start the actual media element.
+         */
+        try {
+
+          await audio.play();
+
+        } catch (error) {
+
+          console.warn(
+            'iOS audio playback failed:',
+            error
+          );
+        }
+      }
+
+
+      /*
+       * =========================================================
+       * PLATFORM PLAYBACK
+       * =========================================================
+       */
       function playSound() {
-        // Anti-spam: If it's already playing, do nothing
-        if (isPlaying || !audio.paused) return;
 
-        // iOS requires ctx.resume() to be called synchronously inside the click
-        if (ctx && ctx.state !== 'running') {
-          ctx.resume().catch(() => {});
+        if (isIOS) {
+          playIOS();
+        } else {
+          playDefault();
+        }
+      }
+
+
+      /*
+       * =========================================================
+       * BUTTON EVENTS
+       * =========================================================
+       *
+       * pointerdown gives iOS the user gesture as early as
+       * possible.
+       */
+      btn.addEventListener('pointerdown', (event) => {
+
+        /*
+         * Ignore secondary mouse buttons.
+         */
+        if (
+          event.button !== undefined &&
+          event.button !== 0
+        ) {
+          return;
         }
 
-        isPlaying = true;
-        audio.play().catch(err => {
-          console.warn('Playback blocked:', err);
-          isPlaying = false; // Reset if it fails so they can try again
-        });
-      }
+        playSound();
+      });
 
-      // 4. Media Session API (Play only)
+
+      /*
+       * Fallback for browsers where pointer events behave
+       * differently.
+       */
+      btn.addEventListener('click', (event) => {
+
+        event.preventDefault();
+
+        playSound();
+      });
+
+
+      /*
+       * =========================================================
+       * MEDIA SESSION
+       * =========================================================
+       */
       if ('mediaSession' in navigator) {
+
         try {
-          navigator.mediaSession.metadata = new MediaMetadata({
-            title: 'DABEH POGI', artist: 'DABEH POGI', album: 'DABEH POGI'
-          });
-          navigator.mediaSession.setActionHandler('play', playSound);
-          navigator.mediaSession.setActionHandler('pause', null); 
-          navigator.mediaSession.setActionHandler('stop', null);
-        } catch(_){}
+
+          navigator.mediaSession.metadata =
+            new MediaMetadata({
+              title: 'DABEH POGI',
+              artist: 'DABEH POGI',
+              album: 'DABEH POGI'
+            });
+
+
+          navigator.mediaSession.setActionHandler(
+            'play',
+            playSound
+          );
+
+        } catch (_) {}
       }
 
-      // 5. Bind the event directly to the button (NOT the document)
-      btn.addEventListener('pointerdown', (e) => {
-        if (e.button !== undefined && e.button !== 0) return;
-        playSound();
-      });
-      
-      // Fallback for iOS if pointerdown doesn't trigger
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        playSound();
-      });
 
-      // 6. Boot up
-      buildGraph();
-      try { audio.load(); } catch(_){}
-      
-      // Try to autoplay immediately (browsers will block until tap)
-      playSound();
+      /*
+       * =========================================================
+       * INITIAL LOAD
+       * =========================================================
+       *
+       * We intentionally DO NOT call playSound() here.
+       *
+       * iOS requires user interaction before audio playback.
+       */
+      try {
+        audio.load();
+      } catch (_) {}
 
-      // 7. Service Worker
+
+      /*
+       * =========================================================
+       * SERVICE WORKER
+       * =========================================================
+       */
       if ('serviceWorker' in navigator) {
+
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('sw.js').catch(console.error);
+
+          navigator.serviceWorker
+            .register('sw.js')
+            .catch((error) => {
+              console.error(
+                'Service worker registration failed:',
+                error
+              );
+            });
+
         });
       }
+
     })();
-  </script>
-</body>
+  </script></body>
 </html>
